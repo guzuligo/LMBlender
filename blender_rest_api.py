@@ -124,7 +124,7 @@ class REST_API_Panel(bpy.types.Panel):
     bl_label = "REST API"
     bl_idname = "VIEW3D_PT_rest_api"
     bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOL_PROPS'  # Sidebar (N-Panel)
+    bl_region_type = 'UI'  # Fixed for Blender 5.1+ compatibility
 
     def draw(self, context):
         layout = self.layout
