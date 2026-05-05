@@ -160,11 +160,22 @@ class REST_API_Stop(bpy.types.Operator):
         self.report({'INFO'}, "REST API server stopped")
         return {'FINISHED'}
 
+# Explicit registration for compatibility with all Blender versions
+classes = (
+    REST_API_Handler,
+    REST_API_Server,
+    REST_API_Panel,
+    REST_API_Start,
+    REST_API_Stop,
+)
+
 def register():
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
 if __name__ == "__main__":
     register()
