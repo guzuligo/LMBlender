@@ -1,104 +1,81 @@
 """Blender MCP Server - Model Context Protocol integration for Blender."""
 
+from fastmcp import FastMCP
 import json
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 import time
-import http.client
 
-class BlenderMCP:
-    """MCP server that exposes Blender operations via MCP protocol."""
+# Create the MCP server instance
+mcp = FastMCP("blender")
+
+@mcp.tool()
+def execute_code(code: str) -> dict:
+    """Execute Python code in Blender context."""
+    result = _call_blender_api('execute', {'code': code})
+    if result.get('status') == 'success':
+        return {"result": result['result']}
+    else:
+        return {"error": result.get('message', 'Unknown error')}
+
+@mcp.tool()
+def get_objects() -> dict:
+    """Get list of all objects in the scene."""
+    result = _call_blender_api('objects')
+    if isinstance(result, dict) and 'objects' in result:
+        return {"objects": result['objects']}
+    else:
+        return {"error": "Failed to get objects"}
+
+@mcp.tool()
+def create_cube(name: str = "Cube") -> dict:
+    """Create a cube at origin."""
+    time.sleep(0.1)  # Small delay to ensure Blender is ready
+    result = _call_blender_api('create_cube', {'name': name})
+    if isinstance(result, dict):
+        return {"object_name": name}
+    else:
+        return {"error": "Failed to create cube"}
+
+@mcp.tool()
+def create_sphere(name: str = "Sphere") -> dict:
+    """Create a sphere at origin."""
+    time.sleep(0.1)
+    result = _call_blender_api('create_sphere', {'name': name})
+    if isinstance(result, dict):
+        return {"object_name": name}
+    else:
+        return {"error": "Failed to create sphere"}
+
+@mcp.tool()
+def set_color(r: float = 1.0, g: float = 0.5, b: float = 0.2) -> dict:
+    """Set material color on selected object."""
+    time.sleep(0.1)
+    result = _call_blender_api('set_color', {'color': [r, g, b]})
+    if isinstance(result, dict):
+        return {"material": f"{name}_Material"}
+    else:
+        return {"error": "Failed to set color"}
+
+def _call_blender_api(endpoint: str, data=None) -> dict:
+    """Call the Blender REST API and return parsed JSON response."""
+    url = f"http://localhost:8080/{endpoint}"
     
-    def __init__(self):
-        self.base_url = "http://localhost:8080"
+    if data is not None:
+        req = Request(
+            url,
+            data=json.dumps(data).encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+    else:
+        req = Request(url)
         
-    def _call_blender_api(self, endpoint, data=None):
-        """Call the Blender REST API and return parsed JSON response."""
-        url = f"{self.base_url}/{endpoint}"
-        
-        if data is not None:
-            req = Request(
-                url,
-                data=json.dumps(data).encode('utf-8'),
-                headers={'Content-Type': 'application/json'},
-                method='POST'
-            )
-        else:
-            req = Request(url)
-            
-        try:
-            with urlopen(req, timeout=5) as response:
-                return json.loads(response.read().decode('utf-8'))
-        except http.client.RemoteDisconnected:
-            # Handle case where server closes connection without proper response
-            return {"status": "success", "message": "Operation completed (connection closed early)"}
-        except URLError as e:
-            return {"status": "error", "message": f"Connection failed: {str(e)}"}
-    
-    def execute_code(self, code):
-        """Execute Python code in Blender context."""
-        result = self._call_blender_api('execute', {'code': code})
-        if result.get('status') == 'success':
-            return {"result": result['result']}
-        else:
-            return {"error": result.get('message', 'Unknown error')}
-    
-    def get_objects(self):
-        """Get list of all objects in the scene."""
-        result = self._call_blender_api('objects')
-        if isinstance(result, dict) and 'objects' in result:
-            return {"objects": result['objects']}
-        else:
-            return {"error": "Failed to get objects"}
-    
-    def create_cube(self, name="Cube"):
-        """Create a cube at origin."""
-        time.sleep(0.1)  # Small delay to ensure Blender is ready
-        result = self._call_blender_api('create_cube', {'name': name})
-        if isinstance(result, dict):
-            return {"object_name": name}
-        else:
-            return {"error": "Failed to create cube"}
-    
-    def create_sphere(self, name="Sphere"):
-        """Create a sphere at origin."""
-        time.sleep(0.1)
-        result = self._call_blender_api('create_sphere', {'name': name})
-        if isinstance(result, dict):
-            return {"object_name": name}
-        else:
-            return {"error": "Failed to create sphere"}
-    
-    def set_color(self, r=1.0, g=0.5, b=0.2):
-        """Set material color on selected object."""
-        time.sleep(0.1)
-        result = self._call_blender_api('set_color', {'color': [r, g, b]})
-        if isinstance(result, dict):
-            return {"material": f"{name}_Material"}
-        else:
-            return {"error": "Failed to set color"}
-
-# Initialize the MCP server instance
-blender_mcp = BlenderMCP()
-
-def main():
-    """Run the MCP server."""
-    print("Starting Blender MCP Server...")
-    
-    # Example usage
-    print("\nTesting execute_code:")
-    result = blender_mcp.execute_code('import bpy; print("Hello from MCP!")')
-    print(f"  Result: {result}")
-    
-    print("\nTesting get_objects:")
-    result = blender_mcp.get_objects()
-    print(f"  Result: {result}")
-    
-    print("\nTesting create_cube:")
-    result = blender_mcp.create_cube("TestCube")
-    print(f"  Result: {result}")
-    
-    print("\nAll tests completed!")
+    try:
+        with urlopen(req, timeout=5) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception as e:
+        return {"status": "error", "message": f"Connection failed: {str(e)}"}
 
 if __name__ == "__main__":
-    main()
+    mcp.run()
