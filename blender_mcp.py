@@ -3,6 +3,7 @@
 import json
 from urllib.request import urlopen, Request
 from urllib.error import URLError
+import time
 
 class BlenderMCP:
     """MCP server that exposes Blender operations via MCP protocol."""
@@ -25,7 +26,7 @@ class BlenderMCP:
             req = Request(url)
             
         try:
-            with urlopen(req) as response:
+            with urlopen(req, timeout=5) as response:
                 return json.loads(response.read().decode('utf-8'))
         except URLError as e:
             return {"status": "error", "message": f"Connection failed: {str(e)}"}
@@ -48,6 +49,8 @@ class BlenderMCP:
     
     def create_cube(self, name="Cube"):
         """Create a cube at origin."""
+        # Add small delay to ensure Blender is ready
+        time.sleep(0.1)
         result = self._call_blender_api('create_cube', {'name': name})
         if result.get('status') == 'success':
             return {"object_name": result['object_name']}
@@ -56,6 +59,7 @@ class BlenderMCP:
     
     def create_sphere(self, name="Sphere"):
         """Create a sphere at origin."""
+        time.sleep(0.1)
         result = self._call_blender_api('create_sphere', {'name': name})
         if result.get('status') == 'success':
             return {"object_name": result['object_name']}
@@ -64,6 +68,7 @@ class BlenderMCP:
     
     def set_color(self, r=1.0, g=0.5, b=0.2):
         """Set material color on selected object."""
+        time.sleep(0.1)
         result = self._call_blender_api('set_color', {'color': [r, g, b]})
         if result.get('status') == 'success':
             return {"material": result['material']}
