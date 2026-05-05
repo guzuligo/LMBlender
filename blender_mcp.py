@@ -1,12 +1,6 @@
 """Blender MCP Server - Model Context Protocol integration for Blender."""
 
 import json
-import sys
-from mcp import (
-    Server,
-    Session,
-    Transport,
-)
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 
@@ -14,12 +8,11 @@ class BlenderMCP:
     """MCP server that exposes Blender operations via MCP protocol."""
     
     def __init__(self):
-        self.server = None
-        self.session = None
+        self.base_url = "http://localhost:8080"
         
     def _call_blender_api(self, endpoint, data=None):
         """Call the Blender REST API and return parsed JSON response."""
-        url = f"http://localhost:8080/{endpoint}"
+        url = f"{self.base_url}/{endpoint}"
         
         if data is not None:
             req = Request(
