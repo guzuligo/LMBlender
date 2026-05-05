@@ -99,6 +99,7 @@ class REST_API_Handler(BaseHTTPRequestHandler):
             self.send_error(404, "Not found")
 
 class REST_API_Server:
+    """Manages the HTTP server lifecycle. Not registered with Blender RNA."""
     server = None
     thread = None
     is_running = False
@@ -160,10 +161,8 @@ class REST_API_Stop(bpy.types.Operator):
         self.report({'INFO'}, "REST API server stopped")
         return {'FINISHED'}
 
-# Explicit registration for compatibility with all Blender versions
+# Only register Blender types (Panel and Operators)
 classes = (
-    REST_API_Handler,
-    REST_API_Server,
     REST_API_Panel,
     REST_API_Start,
     REST_API_Stop,
