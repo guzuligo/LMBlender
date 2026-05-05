@@ -1,41 +1,32 @@
-# Blender REST API
+# Blender REST API Addon
 
-A Flask-based REST API for Blender that allows sending Python commands to draw and manipulate 3D objects.
+A Flask-based REST API for Blender packaged as a standard addon. Allows sending Python commands to draw and manipulate 3D objects via HTTP requests.
 
-## Setup in Blender
+## Installation in Blender
 
-1. Open Blender's **Text Editor** (or Script Editor)
-2. Click **Open** → select `blender_rest_api.py` from this folder
-3. Click the **Run Script** button ▶️
+1. Open Blender → **Edit > Preferences > Add-ons**
+2. Click **Install...**
+3. Select `blender_rest_api.py` from `/home/user1/Documents/workspace/Code/project5-blender/`
+4. Enable the addon (check the box)
 
-The server will start on port 8080 and run in a background thread.
+The REST API tab will appear in the 3D Viewport sidebar (N-Panel).
 
-## Usage Examples
+## Usage
 
-### Execute arbitrary Python code
-```bash
-curl -X POST http://localhost:8080/execute \
-  -H "Content-Type: application/json" \
-  -d '{"code": "import bpy; print(bpy.context.scene.objects)"}'
+### Start Server
+Open the Sidebar (press `N`) → Look for "REST API" tab → Click **Start Server**
+
+Or run from Text Editor:
+```python
+import bpy
+bpy.utils.register_module(__name__)
+bpy.ops.rest_api.start_server()
 ```
 
-### Create a cube
-```bash
-curl -X POST http://localhost:8080/create_cube \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-### Set color on selected object
-```bash
-curl -X POST http://localhost:8080/set_color \
-  -H "Content-Type: application/json" \
-  -d '{"color": [0.2, 0.5, 1.0]}'
-```
-
-### List all objects in scene
+### Test it
 ```bash
 curl http://localhost:8080/objects
+# Should return: {"objects": ["Camera", "Light", ...]}
 ```
 
 ## API Endpoints
