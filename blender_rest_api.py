@@ -1,9 +1,9 @@
-"""Blender REST API Addon - Allows controlling Blender via HTTP requests."""
+"""Blender REST API Addon - Uses standard library http.server."""
 
 import bpy
-from flask import Flask, request, jsonify
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
-from werkzeug.serving import make_server
+import json
 
 bl_info = {
     "name": "Blender REST API",
@@ -15,68 +15,63 @@ bl_info = {
     "category": "3D View"
 }
 
-class REST_API_Server:
-    """Manages the Flask server lifecycle."""
-    server = None
-    is_running = False
-    
-    @staticmethod
-    def start():
-        if cls.server and cls.is_running:
+class REST_API_Handler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass  # Suppress console spam
+
+    def _send_json(self, data):
+        response = json.dumps(data).encode('utf-8')
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(response)
+
+    def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length).decode('utf-8')
+        
+        try:
+            data = json.loads(post_data) if post_data else {}
+        except Exception as e:
+            self.send_error(400, "Invalid JSON")
             return
-        
-        app = Flask(__name__)
-        
-        # --- Routes ---
-        @app.route('/execute', methods=['POST'])
-        def execute():
-            data = request.get_json()
-            if not data or 'code' not in data:
-                return jsonify({"error": "Missing 'code' field"}), 400
-            
+
+        if self.path == '/execute':
             try:
                 exec_globals = {
                     'bpy': bpy,
                     'math': __import__('math'),
                     'random': __import__('random'),
                 }
-                exec(data['code'], exec_globals)
-                return jsonify({"status": "success", "result": str(exec_globals.get('last_result', 'Code executed'))})
+                exec(data.get('code', ''), exec_globals)
+                result = str(exec_globals.get('last_result', 'Code executed'))
             except Exception as e:
-                return jsonify({"status": "error", "message": str(e)}), 500
+                self.send_error(500, str(e))
+                return
+            self._send_json({"status": "success", "result": result})
 
-        @app.route('/objects', methods=['GET'])
-        def get_objects():
-            objects = [obj.name for obj in bpy.context.scene.objects]
-            return jsonify({"objects": objects})
-
-        @app.route('/create_cube', methods=['POST'])
-        def create_cube():
-            data = request.get_json() or {}
+        elif self.path == '/create_cube':
             name = data.get('name', 'Cube')
             bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
             obj = bpy.context.active_object
             if obj:
                 obj.name = name
-            return jsonify({"status": "success", "object_name": name})
+            self._send_json({"status": "success", "object_name": name})
 
-        @app.route('/create_sphere', methods=['POST'])
-        def create_sphere():
-            data = request.get_json() or {}
+        elif self.path == '/create_sphere':
             name = data.get('name', 'Sphere')
             bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(0, 0, 0))
             obj = bpy.context.active_object
             if obj:
                 obj.name = name
-            return jsonify({"status": "success", "object_name": name})
+            self._send_json({"status": "success", "object_name": name})
 
-        @app.route('/set_color', methods=['POST'])
-        def set_color():
-            data = request.get_json() or {}
+        elif self.path == '/set_color':
             r, g, b = data.get('color', [1.0, 0.5, 0.2])
             
             if not bpy.context.active_object:
-                return jsonify({"status": "error", "message": "No object selected"}), 400
+                self.send_error(400, "No object selected")
+                return
             
             obj = bpy.context.active_object
             mat_name = f"{obj.name}_Material"
@@ -91,9 +86,29 @@ class REST_API_Server:
             bsdf = mat.node_tree.nodes['Principled BSDF']
             bsdf.inputs['Base Color'].default_value = (r, g, b, 1.0)
             
-            return jsonify({"status": "success", "material": mat_name})
+            self._send_json({"status": "success", "material": mat_name})
 
-        cls.server = make_server('0.0.0.0', 8080, app)
+        else:
+            self.send_error(404, "Not found")
+
+    def do_GET(self):
+        if self.path == '/objects':
+            objects = [obj.name for obj in bpy.context.scene.objects]
+            self._send_json({"objects": objects})
+        else:
+            self.send_error(404, "Not found")
+
+class REST_API_Server:
+    server = None
+    thread = None
+    is_running = False
+    
+    @staticmethod
+    def start():
+        if cls.server and cls.is_running:
+            return
+        
+        cls.server = HTTPServer(('0.0.0.0', 8080), REST_API_Handler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.is_running = True
