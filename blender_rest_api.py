@@ -106,19 +106,19 @@ class REST_API_Server:
     
     @staticmethod
     def start():
-        if cls.server and cls.is_running:
+        if REST_API_Server.server and REST_API_Server.is_running:
             return
         
-        cls.server = HTTPServer(('0.0.0.0', 8080), REST_API_Handler)
-        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
-        cls.thread.start()
-        cls.is_running = True
+        REST_API_Server.server = HTTPServer(('0.0.0.0', 8080), REST_API_Handler)
+        REST_API_Server.thread = threading.Thread(target=REST_API_Server.server.serve_forever, daemon=True)
+        REST_API_Server.thread.start()
+        REST_API_Server.is_running = True
         
     @staticmethod
     def stop():
-        if cls.server:
-            cls.server.shutdown()
-            cls.is_running = False
+        if REST_API_Server.server:
+            REST_API_Server.server.shutdown()
+            REST_API_Server.is_running = False
 
 class REST_API_Panel(bpy.types.Panel):
     bl_label = "REST API"
