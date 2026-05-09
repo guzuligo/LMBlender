@@ -96,3 +96,7 @@ Then copy the path and paste it where `/path/to/python` appears above.
 - The server runs in a thread so Blender stays responsive
 - All code executes in Blender's `bpy` context
 - Modify the script to add more endpoints as needed
+
+## Credits
+
+This project was vibecoded using [Qwen3.6] Local version.
