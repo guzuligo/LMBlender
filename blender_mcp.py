@@ -3,14 +3,27 @@
 from fastmcp import FastMCP
 import json
 from urllib.request import urlopen, Request
-from urllib.error import URLError
+from urllib.error import URLError, HTTPError
 import time
 
 # Create the MCP server instance
 mcp = FastMCP("blender")
 
-def _call_blender_api(endpoint: str, data=None) -> dict:
-    """Call the Blender REST API and return parsed JSON response."""
+# Default timeout in seconds for API requests
+API_TIMEOUT = 15
+
+
+def _call_blender_api(endpoint: str, data: dict = None, timeout: int = API_TIMEOUT) -> dict:
+    """Call the Blender REST API and return parsed JSON response.
+    
+    Args:
+        endpoint: API endpoint path (without leading slash)
+        data: Optional dictionary to send as JSON body
+        timeout: Request timeout in seconds
+        
+    Returns:
+        Dictionary with parsed JSON response, or error dict on failure
+    """
     url = f"http://localhost:8080/{endpoint}"
     
     if data is not None:
@@ -24,10 +37,25 @@ def _call_blender_api(endpoint: str, data=None) -> dict:
         req = Request(url)
         
     try:
-        with urlopen(req, timeout=5) as response:
+        with urlopen(req, timeout=timeout) as response:
             return json.loads(response.read().decode('utf-8'))
+    except HTTPError as e:
+        # Handle HTTP error responses (4xx, 5xx)
+        error_body = {"status": "error", "message": f"HTTP {e.code}: {e.reason}"}
+        try:
+            error_body = json.loads(e.read().decode('utf-8'))
+        except Exception:
+            pass
+        return error_body
+    except URLError as e:
+        return {"status": "error", "message": f"Connection failed: {e.reason}"}
+    except json.JSONDecodeError:
+        return {"status": "error", "message": "Invalid JSON response from Blender"}
+    except TimeoutError:
+        return {"status": "error", "message": f"Request timed out after {timeout} seconds"}
     except Exception as e:
-        return {"status": "error", "message": f"Connection failed: {str(e)}"}
+        return {"status": "error", "message": f"Unexpected error: {str(e)}"}
+
 
 @mcp.tool()
 def blenderAPI_execute_code(code: str) -> dict:
@@ -40,8 +68,8 @@ def blenderAPI_execute_code(code: str) -> dict:
         code: Python code string to execute in Blender context
         
     Returns:
-        dict with 'status' and 'result' keys on success, or 'error' key on failure
-    
+        dict with 'result' on success, or 'error' on failure
+        
     Example:
         # Create a cube at origin
         blenderAPI_execute_code('import bpy; bpy.ops.mesh.primitive_cube_add()')
@@ -51,9 +79,10 @@ def blenderAPI_execute_code(code: str) -> dict:
     """
     result = _call_blender_api('execute', {'code': code})
     if result.get('status') == 'success':
-        return {"result": result['result']}
+        return {"result": result.get('result', '')}
     else:
-        return {"error": result.get('message', 'Unknown error')}
+        return {"error": result.get('message', 'Unknown error: execution failed')}
+
 
 @mcp.tool()
 def blenderAPI_get_objects() -> dict:
@@ -61,16 +90,17 @@ def blenderAPI_get_objects() -> dict:
     
     Returns:
         dict with 'objects' key containing list of object names, or 'error' on failure
-    
+        
     Example:
         result = blenderAPI_get_objects()
         print(result['objects'])  # ['Camera', 'Light', 'Cube']
     """
     result = _call_blender_api('objects')
-    if isinstance(result, dict) and 'objects' in result:
+    if isinstance(result, dict) and result.get('status') == 'success' and 'objects' in result:
         return {"objects": result['objects']}
     else:
-        return {"error": "Failed to get objects"}
+        return {"error": result.get('message', 'Failed to get objects from Blender')}
+
 
 @mcp.tool()
 def blenderAPI_create_cube(name: str = "Cube") -> dict:
@@ -81,17 +111,17 @@ def blenderAPI_create_cube(name: str = "Cube") -> dict:
         
     Returns:
         dict with 'object_name' on success, or 'error' on failure
-    
+        
     Example:
         result = blenderAPI_create_cube("MyCube")
         print(result['object_name'])  # "MyCube"
     """
-    time.sleep(0.1)  # Small delay to ensure Blender is ready
     result = _call_blender_api('create_cube', {'name': name})
-    if isinstance(result, dict):
-        return {"object_name": name}
+    if isinstance(result, dict) and result.get('status') == 'success':
+        return {"object_name": result.get('object_name', name)}
     else:
-        return {"error": "Failed to create cube"}
+        return {"error": result.get('message', 'Failed to create cube')}
+
 
 @mcp.tool()
 def blenderAPI_create_sphere(name: str = "Sphere") -> dict:
@@ -102,41 +132,42 @@ def blenderAPI_create_sphere(name: str = "Sphere") -> dict:
         
     Returns:
         dict with 'object_name' on success, or 'error' on failure
-    
+        
     Example:
         result = blenderAPI_create_sphere("MySphere")
         print(result['object_name'])  # "MySphere"
     """
-    time.sleep(0.1)
     result = _call_blender_api('create_sphere', {'name': name})
-    if isinstance(result, dict):
-        return {"object_name": name}
+    if isinstance(result, dict) and result.get('status') == 'success':
+        return {"object_name": result.get('object_name', name)}
     else:
-        return {"error": "Failed to create sphere"}
+        return {"error": result.get('message', 'Failed to create sphere')}
+
 
 @mcp.tool()
-def blenderAPI_set_color(r: float = 1.0, g: float = 0.5, b: float = 0.2) -> dict:
+def blenderAPI_set_color(r: float = 1.0, g: float = 0.5, b: float = 0.2, name: str = "Object") -> dict:
     """Set material color on the currently selected object in Blender.
     
     Args:
         r: Red component (0.0-1.0), defaults to 1.0
         g: Green component (0.0-1.0), defaults to 0.5
         b: Blue component (0.0-1.0), defaults to 0.2
+        name: Display name for the object (used in response only)
         
     Returns:
         dict with 'material' name on success, or 'error' on failure
-    
+        
     Example:
         # Set selected object to blue color
         result = blenderAPI_set_color(0.0, 0.5, 1.0)
         print(result['material'])  # "Cube_Material"
     """
-    time.sleep(0.1)
     result = _call_blender_api('set_color', {'color': [r, g, b]})
-    if isinstance(result, dict):
-        return {"material": f"{name}_Material"}
+    if isinstance(result, dict) and result.get('status') == 'success':
+        return {"material": result.get('material', f"{name}_Material")}
     else:
-        return {"error": "Failed to set color"}
+        return {"error": result.get('message', 'Failed to set color')}
+
 
 if __name__ == "__main__":
     mcp.run()
