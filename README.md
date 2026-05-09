@@ -6,7 +6,7 @@ A Flask-based REST API for Blender packaged as a standard addon. Allows sending 
 
 1. Open Blender → **Edit > Preferences > Add-ons**
 2. Click **Install...**
-3. Select `blender_rest_api.py` from `/home/user1/Documents/workspace/Code/project5-blender/`
+3. Select `blender_rest_api.py`
 4. Enable the addon (check the box)
 
 The REST API tab will appear in the 3D Viewport sidebar (N-Panel).
