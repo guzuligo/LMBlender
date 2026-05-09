@@ -1,6 +1,6 @@
-# Blender REST API Addon
+# Connect Blender to LM Studio
 
-A Flask-based REST API for Blender packaged as a standard addon. Allows sending Python commands to draw and manipulate 3D objects via HTTP requests.
+A Model Context Protocol (MCP) server that connects LM Studio to Blender, allowing AI assistants powered by LM Studio to control Blender through natural language commands.
 
 ## Installation in Blender
 
